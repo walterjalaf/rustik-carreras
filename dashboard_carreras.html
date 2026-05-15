@@ -4,8 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard Ingresos por Carrera — CIAF</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root {
   --bg:         #0F0F0F;
@@ -131,6 +133,13 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); 
   transition: background .15s;
 }
 .print-btn:hover { background: var(--cyan-2); }
+.print-btn--dark {
+  margin-left: 0;
+  background: #FBBF24;
+  color: #0F0F0F;
+}
+.print-btn--dark:hover { background: #FCD34D; }
+.print-btn--dark:disabled { opacity: 0.5; cursor: wait; }
 
 /* ── BLOCK LABEL ─────────────────────────────────────────── */
 .block-label {
@@ -218,6 +227,7 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); 
   background: var(--surface);
   border-radius: 14px;
   padding: 22px 24px;
+  overflow: hidden; /* evita que el canvas de chart.js se salga del card */
   border: 1px solid var(--border);
 }
 .chart-card.full { grid-column: 1/-1; }
@@ -308,45 +318,442 @@ footer { text-align: center; padding: 20px; color: var(--text-dim); font-size: 0
 .sheet-input { background: var(--surface-3); border: 1px solid var(--border); border-radius: 7px; padding: 7px 12px; color: var(--text); font-size: 0.78rem; font-family: 'Inter',sans-serif; }
 .sheet-input:focus { outline: none; border-color: var(--cyan); }
 
-/* ── PRINT ───────────────────────────────────────────────── */
+/* ── PDF EXPORT MODE: activado solo durante la generacion del PDF ── */
+body.pdf-export-mode .charts-grid {
+  grid-template-columns: 1fr !important;
+  gap: 18px !important;
+}
+/* Canvas mas alto = mas resolucion al hacer toBase64Image() */
+body.pdf-export-mode .chart-card > div[style*="height:280px"] {
+  height: 520px !important;
+}
+body.pdf-export-mode .chart-card {
+  padding: 22px 26px !important;
+  overflow: hidden !important;
+}
+body.pdf-export-mode .container {
+  max-width: 1280px !important;
+}
+
+/* ── RESPONSIVE (screen): mobile / tablet / desktop ───────── */
+/* Tablet: 700-1023px */
+@media (max-width: 1023px) {
+  .container { padding: 22px 22px; }
+  .navbar { padding: 0 22px; }
+  .nav-total-value { font-size: 1.3rem; }
+  .charts-grid { grid-template-columns: 1fr; }
+  .resumen-grid { grid-template-columns: 1fr; gap: 18px; }
+  .kpi-grid--compact { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .hero-value { font-size: 2.5rem; }
+}
+
+/* Mobile: <700px */
+@media (max-width: 699px) {
+  .navbar {
+    padding: 12px 16px;
+    height: auto;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .nav-left { flex: 1 1 100%; }
+  .nav-center { flex: 1 1 100%; padding: 0; }
+  .month-select { max-width: none; flex: 1; }
+  .nav-right { flex: 1 1 100%; justify-content: space-between; }
+  .nav-total-value { font-size: 1.2rem; }
+  .nav-title { font-size: 0.85rem; }
+  .nav-sub { font-size: 0.65rem; }
+  .nav-logo { height: 34px; }
+
+  .container { padding: 16px 12px; }
+  .print-controls { padding: 8px 12px; gap: 8px; }
+  .print-controls-label { font-size: 0.58rem; }
+  .print-check-item { font-size: 0.68rem; }
+
+  .resumen-grid { grid-template-columns: 1fr; gap: 14px; }
+  .hero-total { padding: 20px 18px; }
+  .hero-value { font-size: 1.9rem; }
+  .hero-label { font-size: 0.62rem; letter-spacing: 0.15em; }
+
+  /* Cards: 1 columna en mobile para que entren los numeros completos */
+  .kpi-grid--compact { grid-template-columns: 1fr 1fr !important; gap: 10px; }
+  #block-resumen-ytd .kpi-grid--compact { grid-template-columns: 1fr 1fr !important; }
+  .kpi-card { padding: 14px 12px; }
+  .kpi-value { font-size: 1.4rem !important; }
+  .kpi-label { font-size: 0.55rem; }
+  .kpi-sub { font-size: 0.62rem; }
+
+  /* Charts: 1 columna apilada en mobile */
+  .charts-grid { grid-template-columns: 1fr !important; gap: 14px; }
+  .chart-card { padding: 16px 14px; }
+  .chart-card > div[style*="height:280px"] { height: 240px !important; }
+  .chart-title { font-size: 0.72rem; }
+
+  /* Tabla: permitir scroll horizontal en mobile */
+  .table-wrap { padding: 14px 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { font-size: 0.68rem; min-width: 600px; }
+  th, td { padding: 5px 7px; }
+
+  /* Block labels */
+  .block-label { font-size: 0.62rem; padding-left: 4px; }
+  .section-title { font-size: 0.78rem; }
+
+  footer { font-size: 0.6rem; padding: 14px 12px; }
+}
+
+/* Mobile chiquito: <420px */
+@media (max-width: 419px) {
+  .container { padding: 12px 8px; }
+  .kpi-grid--compact { grid-template-columns: 1fr !important; gap: 10px; }
+  #block-resumen-ytd .kpi-grid--compact { grid-template-columns: 1fr !important; }
+  .kpi-value { font-size: 1.6rem !important; }
+  .hero-value { font-size: 1.6rem; }
+  .nav-logo { height: 28px; }
+  .chart-card > div[style*="height:280px"] { height: 200px !important; }
+}
+
+/* ── PRINT (paleta CIAF editorial) ───────────────────────── */
 @media print {
-  @page { size: A4 landscape; margin: 10mm; }
-  .navbar .nav-center,
-  .print-controls,
-  .block-label { display: none !important; }
-  body { background: white !important; color: #111 !important; }
-  .navbar { background: #1E4A82 !important; border-bottom: none !important; position: static; }
-  .nav-title, .nav-sub { color: white !important; }
-  .nav-total-label, .nav-total-mes { color: rgba(255,255,255,0.55) !important; }
-  .nav-total-value { color: white !important; font-size: 1.2rem !important; }
-  .btn-icon { display: none !important; }
-  #uploadStatus { display: none !important; }
-  .kpi-card, .chart-card, .table-wrap { background: white !important; border-color: rgba(0,0,0,0.10) !important; box-shadow: none !important; }
-  .kpi-card { page-break-inside: avoid; break-inside: avoid; }
-  .chart-card, .table-wrap { page-break-inside: avoid; break-inside: avoid; }
-  .hero-total { background: #1E4A82 !important; border-color: transparent !important; box-shadow: none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .hero-total--ytd { background: #7A5C0E !important; }
-  .hero-value { color: white !important; font-size:1.65rem !important; }
-  .hero-label { color: rgba(255,255,255,0.75) !important; }
-  .hero-mes, .hero-split { color: rgba(255,255,255,0.65) !important; }
-  .hero-split b { color: #67E8F9 !important; }
-  .hero-total--ytd .hero-split b { color: #FCD34D !important; }
-  .resumen-grid { grid-template-columns: 220px 1fr !important; gap: 14px !important; margin-bottom: 16px !important; }
-  .kpi-value { color: #0E1F33 !important; font-size: 1.35rem !important; }
-  .kpi-label, .kpi-sub, .kpi-pct { color: #6B7280 !important; }
-  .kpi-grid--compact { grid-template-columns: repeat(5, 1fr) !important; gap: 8px !important; }
-  #block-resumen-ytd .kpi-grid--compact { grid-template-columns: repeat(5, 1fr) !important; }
-  .kpi-grid--compact .kpi-card { padding: 12px 12px !important; }
-  #block-resumen-ytd { page-break-before: always; break-before: page; margin-top: 0 !important; }
-  td { color: #111 !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
-  .chart-title, .section-title { color: #111 !important; }
-  .section-title::before { background: #1E4A82 !important; }
-  th, tr.total-row td, tr.subtotal-mp td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* Paleta DARK (espejo del HTML) */
+  :root {
+    --p-bg: #0F0F0F;
+    --p-surface: #1A1A1A;
+    --p-surface-2: #222222;
+    --p-border: rgba(255,255,255,0.12);
+    --p-border-soft: rgba(255,255,255,0.06);
+    --p-text: #F0F4F8;
+    --p-text-muted: rgba(240,244,248,0.55);
+    --p-text-dim: rgba(240,244,248,0.30);
+    --p-cyan: #22D3EE;
+    --p-cyan-2: #67E8F9;
+    --p-cyan-dim: rgba(34,211,238,0.12);
+    --p-gold: #FBBF24;
+    --p-gold-2: #FCD34D;
+    --p-green: #4ADE80;
+    --p-header: #142337;
+  }
+  /* PORTRAIT para mobile */
+  @page { size: A4 portrait; margin: 0; background: #0F0F0F; }
+
+  /* Forzar colores en TODO */
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  html, body {
+    background: var(--p-bg) !important;
+    color: var(--p-text) !important;
+    font-family: 'Inter','Outfit',sans-serif !important;
+  }
+
+  /* Header navy del HTML */
+  .navbar {
+    background: var(--p-header) !important;
+    border-bottom: 1px solid rgba(34,211,238,0.12) !important;
+    position: static !important;
+    height: auto !important;
+    padding: 5mm 7mm !important;
+    page-break-after: avoid;
+  }
+  .navbar .nav-center, .print-controls, .btn-icon, #uploadStatus, .nav-right { display: none !important; }
+  .nav-logo { height: 30px !important; }
+  .nav-title {
+    color: var(--p-text) !important;
+    font-family: 'Inter',sans-serif !important;
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.01em !important;
+  }
+  .nav-sub { color: var(--p-text-muted) !important; font-family: 'Inter',sans-serif !important; font-size: 0.65rem !important; }
+
+  /* Container con padding bg-color */
+  .container {
+    padding: 3mm 6mm 0 6mm !important;
+    max-width: 100% !important;
+    background: var(--p-bg) !important;
+  }
+
+  /* Block labels: cyan accent */
+  .block-label {
+    display: block !important;
+    color: var(--p-cyan) !important;
+    font-family: 'Inter',sans-serif !important;
+    font-size: 0.55rem !important;
+    letter-spacing: 0.18em !important;
+    text-transform: uppercase !important;
+    font-weight: 700 !important;
+    margin: 3mm 0 1.5mm 0 !important;
+    padding-left: 0 !important;
+  }
+  #block-resumen-ytd .block-label { color: var(--p-gold) !important; }
+
+  /* Hero como BANNER HORIZONTAL con gradiente oscuro del HTML */
+  .hero-total {
+    background: linear-gradient(135deg,#142337 0%,#0F1A29 100%) !important;
+    border: 1px solid rgba(34,211,238,0.28) !important;
+    border-left: 4px solid var(--p-cyan) !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    padding: 6px 12px !important;
+    display: grid !important;
+    grid-template-columns: auto auto 1fr !important;
+    align-items: center !important;
+    gap: 12px !important;
+  }
+  .hero-total--ytd {
+    background: linear-gradient(135deg,#2A2010 0%,#1F1808 100%) !important;
+    border: 1px solid rgba(251,191,36,0.28) !important;
+    border-left: 4px solid var(--p-gold) !important;
+  }
+  .hero-meta {
+    flex-direction: row !important;
+    gap: 16px !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    text-align: right !important;
+  }
+  .hero-label {
+    color: var(--p-cyan-2) !important;
+    font-family: 'Inter',sans-serif !important;
+    font-size: 0.55rem !important;
+    letter-spacing: 0.2em !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    white-space: nowrap !important;
+  }
+  .hero-total--ytd .hero-label { color: var(--p-gold-2) !important; }
+  .hero-value {
+    color: var(--p-text) !important;
+    font-family: 'JetBrains Mono',monospace !important;
+    font-size: 1.3rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.02em !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+  .hero-mes { color: var(--p-text-muted) !important; font-family: 'Inter',sans-serif !important; font-size: 0.62rem !important; }
+  .hero-split { color: var(--p-text-muted) !important; font-family: 'Inter',sans-serif !important; font-size: 0.62rem !important; white-space: nowrap !important; }
+  .hero-split b { color: var(--p-cyan) !important; font-family: 'JetBrains Mono',monospace !important; font-weight: 700 !important; }
+  .hero-total--ytd .hero-split b { color: var(--p-gold) !important; }
+
+  /* Resumen grid: hero arriba a full width, cards llenan el ancho debajo */
+  .resumen-grid {
+    grid-template-columns: 1fr !important;
+    gap: 2mm !important;
+    margin-bottom: 0 !important;
+    padding: 0 5mm !important;
+  }
+
+  /* KPI cards oscuras con barra de color */
+  .kpi-card {
+    background: var(--p-surface) !important;
+    border: 1px solid var(--p-border) !important;
+    box-shadow: none !important;
+    padding: 8px 10px !important;
+    border-radius: 6px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    position: relative !important;
+  }
+  .kpi-card > div:first-child {
+    height: 3px !important;
+    border-radius: 6px 6px 0 0 !important;
+  }
+  .kpi-label {
+    color: var(--p-text-muted) !important;
+    font-family: 'Inter',sans-serif !important;
+    font-size: 0.5rem !important;
+    letter-spacing: 0.12em !important;
+    text-transform: uppercase !important;
+    font-weight: 600 !important;
+    margin-bottom: 4px !important;
+    margin-top: 4px !important;
+  }
+  .kpi-value {
+    color: var(--p-text) !important;
+    font-family: 'JetBrains Mono',monospace !important;
+    font-size: 0.95rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.02em !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: clip !important;
+    font-variant-numeric: tabular-nums !important;
+  }
+  .kpi-sub {
+    color: var(--p-text-muted) !important;
+    font-size: 0.55rem !important;
+    font-family: 'Inter',sans-serif !important;
+    margin-top: 5px !important;
+    line-height: 1.4 !important;
+  }
+  .kpi-pct {
+    color: var(--p-green) !important;
+    font-size: 0.55rem !important;
+    font-weight: 700 !important;
+    font-family: 'Inter',sans-serif !important;
+    margin-top: 3px !important;
+  }
+  #block-resumen-ytd .kpi-pct { color: var(--p-gold-2) !important; }
+
+  /* Cards en 3 columnas en portrait (mejor lectura en mobile) */
+  .kpi-grid--compact {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 3mm !important;
+  }
+  #block-resumen-ytd .kpi-grid--compact {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* Page 1: Navbar + MES + YTD + Donut/Bar. Page 2: Acumulado. Page 3+: Tabla */
+  #block-resumen {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    padding-bottom: 0 !important;
+  }
+  #block-resumen-ytd {
+    page-break-before: avoid !important;
+    break-before: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    margin-top: 0 !important;
+    padding: 0 0 2mm 0 !important;
+  }
+  #block-charts {
+    page-break-before: avoid !important;
+    break-before: avoid !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    padding: 2mm 0 0 0 !important;
+  }
+  #block-acum {
+    page-break-before: always !important;
+    break-before: page !important;
+    page-break-after: auto !important;
+    break-after: auto !important;
+    padding: 4mm 6mm 4mm 6mm !important;
+  }
+  #block-tabla {
+    page-break-before: auto !important;
+    break-before: auto !important;
+    padding: 3mm 6mm 4mm 6mm !important;
+  }
+
+  /* Chart cards oscuros */
+  .chart-card {
+    background: var(--p-surface) !important;
+    border: 1px solid var(--p-border) !important;
+    border-top: 3px solid var(--p-cyan) !important;
+    box-shadow: none !important;
+    padding: 7px 10px !important;
+    border-radius: 6px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 3mm !important;
+  }
+  .chart-title {
+    color: var(--p-text) !important;
+    font-family: 'Inter',sans-serif !important;
+    font-size: 0.7rem !important;
+    font-weight: 700 !important;
+    border-bottom-color: var(--p-border) !important;
+    margin-bottom: 6px !important;
+    padding-bottom: 5px !important;
+  }
+  /* Donut + Bar side by side en page 1 (cabe en portrait con 196mm) */
+  .charts-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 3mm !important;
+    margin-bottom: 0 !important;
+    page-break-inside: avoid !important;
+  }
+  /* Heights: charts page 1 mas chicos, acumulado lleno en page 2 */
+  .chart-card > div[style*="height:280px"] { height: 58mm !important; }
+  .chart-card.full > div[style*="height:280px"] { height: 130mm !important; }
+
+  /* Section titles */
+  .section-title {
+    color: var(--p-text) !important;
+    font-family: 'Inter',sans-serif !important;
+    font-size: 0.85rem !important;
+    font-weight: 700 !important;
+  }
+  .section-title::before { background: var(--p-cyan) !important; }
+
+  /* Tabla oscura (compacta para portrait, 12 columnas) */
+  .table-wrap {
+    background: var(--p-surface) !important;
+    border: 1px solid var(--p-border) !important;
+    box-shadow: none !important;
+    padding: 3mm 2mm !important;
+    border-radius: 6px !important;
+    overflow: visible !important;
+  }
+  table {
+    font-size: 0.42rem !important;
+    font-family: 'JetBrains Mono',monospace !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: fixed !important;
+  }
+  thead { display: table-header-group !important; }
+  tfoot { display: table-footer-group !important; }
+  tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+  th {
+    background: rgba(34,211,238,0.10) !important;
+    color: var(--p-text-muted) !important;
+    font-family: 'Inter',sans-serif !important;
+    padding: 3px 2px !important;
+    border-bottom: 1px solid var(--p-border) !important;
+    font-size: 0.38rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    word-break: break-word !important;
+  }
+  td {
+    color: var(--p-text) !important;
+    border-bottom: 1px solid var(--p-border-soft) !important;
+    padding: 2px 2px !important;
+    font-family: 'JetBrains Mono',monospace !important;
+    font-variant-numeric: tabular-nums !important;
+  }
+  tr.total-row td {
+    background: var(--p-cyan-dim) !important;
+    color: var(--p-text) !important;
+    font-weight: 700 !important;
+    border-top: 1px solid rgba(34,211,238,0.3) !important;
+  }
+  tr.subtotal-mp td {
+    background: rgba(34,211,238,0.06) !important;
+    color: var(--p-text) !important;
+  }
+  tr.subtotal-ef td {
+    background: rgba(34,211,238,0.03) !important;
+    color: var(--p-text-muted) !important;
+  }
+  tr.week-sep td { border-top: 1px dashed var(--p-border) !important; }
+
+  /* Pills */
+  .pill-mp { background: rgba(34,211,238,0.15) !important; color: var(--p-cyan) !important; }
+  .pill-ef { background: rgba(240,244,248,0.08) !important; color: var(--p-text-muted) !important; }
+
+  /* Footer */
+  footer {
+    display: block !important;
+    text-align: center !important;
+    padding: 4mm 8mm !important;
+    margin-top: 4mm !important;
+    border-top: 1px solid var(--p-border-soft) !important;
+    color: var(--p-text-dim) !important;
+    font-size: 0.58rem !important;
+    font-family: 'Inter',sans-serif !important;
+    letter-spacing: 0.06em !important;
+    background: var(--p-bg) !important;
+  }
+
   .block-hidden { display: none !important; }
-  .container { padding: 10px 14px; }
-  .charts-grid { grid-template-columns: 1fr 1fr; page-break-inside: avoid; }
-  #block-charts, #block-acum { page-break-before: always; break-before: page; }
-  footer { display: none !important; }
 }
 </style>
 </head>
@@ -382,6 +789,7 @@ footer { text-align: center; padding: 20px; color: var(--text-dim); font-size: 0
     <label class="print-check-item"><input type="checkbox" id="chk-acum"   checked> Progresión</label>
     <label class="print-check-item"><input type="checkbox" id="chk-tabla"  checked> Tabla</label>
     <button class="print-btn" onclick="printSelected()">&#x2399; Imprimir selección</button>
+    <button class="print-btn print-btn--dark" id="btnPdfDark" type="button">&#x2B07; PDF Dark Mode</button>
   </div>
 
   <div id="block-resumen">
@@ -526,7 +934,34 @@ function buildKPIs(races,totales,gtTotal){
       <div class="kpi-sub">MP: $${t.mp.toLocaleString('es-AR')}<br>Ef: $${t.ef.toLocaleString('es-AR')}</div>
       <div class="kpi-pct">${pct}% del total</div></div>`;
   }).join('');
+  fitAllKpiValues();
 }
+
+// Auto-fit: reduce font-size de cada .kpi-value hasta que entre completo en el card
+function fitKpiValue(el, maxRem, minRem) {
+  if (!el) return;
+  maxRem = maxRem || 2.15;
+  minRem = minRem || 0.85;
+  el.style.fontSize = maxRem + 'rem';
+  let size = maxRem;
+  // Permitir un par de ciclos por si el layout no termino de calcular
+  let safety = 40;
+  while (safety-- > 0 && el.scrollWidth > el.clientWidth && size > minRem) {
+    size = Math.max(minRem, size - 0.05);
+    el.style.fontSize = size + 'rem';
+  }
+}
+function fitAllKpiValues() {
+  // Mensual: cards mas anchas (minmax 180) → max font mas alto
+  document.querySelectorAll('#kpiGrid .kpi-value').forEach(el => fitKpiValue(el, 2.0, 0.9));
+  // YTD: cards minmax 210 pero numeros mas largos → max mas chico
+  document.querySelectorAll('#kpiGridYtd .kpi-value').forEach(el => fitKpiValue(el, 1.7, 0.85));
+}
+// Re-fit al cambiar tamaño de ventana
+window.addEventListener('resize', () => {
+  clearTimeout(window.__fitTimer);
+  window.__fitTimer = setTimeout(fitAllKpiValues, 120);
+});
 
 function buildTableHeader(races){
   const rh=races.map(k=>`<th colspan="2" style="text-align:center;border-left:1px solid rgba(255,255,255,0.08);color:${rc(k).vc}">${rc(k).icon} ${rc(k).label}</th>`).join('');
@@ -650,6 +1085,222 @@ function printSelected(){
     const el=document.getElementById('block-'+b);
     if(el) el.classList.remove('block-hidden');
   }),800);
+}
+
+// ── PDF DARK MODE EXPORT (html2canvas + jsPDF) ─────────────────────────────
+// Genera un PDF que se ve IGUAL al dashboard HTML (modo oscuro), sin depender
+// de la opcion "Print backgrounds" del navegador.
+async function exportDarkPdf(){
+  const btn = document.getElementById('btnPdfDark');
+  if (!window.html2canvas || !window.jspdf) {
+    showStatus('Libs de PDF no cargaron. Revisa conexion a internet.', 'error');
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando...'; }
+  showStatus('Generando PDF dark mode...', 'info');
+
+  // 1) Activar modo PDF-export (apila charts, agrandar canvas heights)
+  document.body.classList.add('pdf-export-mode');
+  await new Promise(r => requestAnimationFrame(r));
+  await new Promise(r => requestAnimationFrame(r));
+
+  // 2) Boost devicePixelRatio de los charts para alta resolucion en el PDF
+  const charts = [chartDonut, chartMpEf, chartAcum];
+  const originalDPRs = charts.map(ch => (ch ? (ch.options.devicePixelRatio || window.devicePixelRatio || 1) : null));
+  charts.forEach(ch => {
+    if (!ch) return;
+    ch.options.devicePixelRatio = 3;
+    try { ch.resize(); ch.update('none'); } catch (e) {}
+  });
+
+  // 3) Esperar a que Chart.js termine de redibujar con la nueva resolucion
+  await new Promise(r => setTimeout(r, 700));
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = 210, pageH = 297;
+
+    const drawPageBg = () => {
+      pdf.setFillColor(15, 15, 15);
+      pdf.rect(0, 0, pageW, pageH, 'F');
+    };
+
+    // Captura HTML estandar via html2canvas (para navbar/MES/YTD/tabla, no charts)
+    async function captureHtml(el, bg) {
+      const cv = await html2canvas(el, {
+        backgroundColor: bg || '#0F0F0F',
+        scale: 2,
+        useCORS: true,
+        logging: false
+      });
+      return {
+        data: cv.toDataURL('image/jpeg', 0.92),
+        canvas: cv,
+        mmH: (cv.height * pageW) / cv.width
+      };
+    }
+
+    // Dibuja una card con su chart usando primitivas jsPDF + toBase64Image()
+    // Mucho mas confiable que html2canvas para canvases de Chart.js.
+    function drawChartCard(x, y, w, h, title, chart) {
+      // Fondo del card
+      pdf.setFillColor(26, 26, 26);
+      pdf.roundedRect(x, y, w, h, 2, 2, 'F');
+      // Top accent cyan
+      pdf.setFillColor(34, 211, 238);
+      pdf.rect(x, y, w, 0.7, 'F');
+      // Titulo
+      pdf.setTextColor(240, 244, 248);
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(title, x + 6, y + 7);
+      // Linea bajo el titulo
+      pdf.setDrawColor(255, 255, 255);
+      pdf.setLineWidth(0.1);
+      pdf.line(x + 6, y + 9, x + w - 6, y + 9);
+
+      if (!chart || !chart.canvas) return;
+      const titleH = 11;
+      const padding = 4;
+      const innerY = y + titleH;
+      const innerW = w - 2 * padding;
+      const innerH = h - titleH - padding;
+      // Preservar aspect ratio del chart
+      const cvW = chart.canvas.width;
+      const cvH = chart.canvas.height;
+      const ratio = cvW / cvH;
+      let drawW = innerW;
+      let drawH = drawW / ratio;
+      if (drawH > innerH) {
+        drawH = innerH;
+        drawW = drawH * ratio;
+      }
+      const drawX = x + (w - drawW) / 2;
+      const drawY = innerY + (innerH - drawH) / 2;
+      try {
+        const img = chart.toBase64Image('image/png', 1);
+        pdf.addImage(img, 'PNG', drawX, drawY, drawW, drawH);
+      } catch (e) {
+        console.warn('[PDF] chart image fail', e);
+      }
+    }
+
+    function drawSectionTitle(text, x, y) {
+      pdf.setTextColor(34, 211, 238);
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(text, x, y);
+    }
+
+    const isVisible = el => el && !el.classList.contains('block-hidden');
+    let firstPage = true;
+    const newPage = () => {
+      if (!firstPage) pdf.addPage();
+      firstPage = false;
+      drawPageBg();
+    };
+
+    // ===== PAGINA 1: navbar + MES + YTD (html2canvas) =====
+    newPage();
+    let yPos = 0;
+    const navbar = document.querySelector('.navbar');
+    if (navbar) {
+      const cap = await captureHtml(navbar, '#142337');
+      pdf.addImage(cap.data, 'JPEG', 0, yPos, pageW, cap.mmH);
+      yPos += cap.mmH;
+    }
+    const blkResumen = document.getElementById('block-resumen');
+    if (isVisible(blkResumen)) {
+      const cap = await captureHtml(blkResumen, '#0F0F0F');
+      pdf.addImage(cap.data, 'JPEG', 0, yPos, pageW, cap.mmH);
+      yPos += cap.mmH;
+    }
+    const blkYtd = document.getElementById('block-resumen-ytd');
+    if (isVisible(blkYtd)) {
+      const cap = await captureHtml(blkYtd, '#0F0F0F');
+      pdf.addImage(cap.data, 'JPEG', 0, yPos, pageW, cap.mmH);
+      yPos += cap.mmH;
+    }
+
+    // ===== PAGINA 2: Distribucion y Comparativa (manual) =====
+    if (chartDonut || chartMpEf) {
+      newPage();
+      const margin = 10;
+      const cardW = pageW - 2 * margin;
+      drawSectionTitle('DISTRIBUCION Y COMPARATIVA', margin, margin + 5);
+      const titleAreaH = 12;
+      const contentH = pageH - 2 * margin - titleAreaH;
+      const cardGap = 5;
+      const cardH = (contentH - cardGap) / 2;
+      drawChartCard(margin, margin + titleAreaH, cardW, cardH,
+        'Participacion por Carrera en el Total', chartDonut);
+      drawChartCard(margin, margin + titleAreaH + cardH + cardGap, cardW, cardH,
+        'MP vs Efectivo por Carrera', chartMpEf);
+    }
+
+    // ===== PAGINA 3: Progresion Diaria Acumulada (manual) =====
+    if (chartAcum) {
+      newPage();
+      const margin = 10;
+      const cardW = pageW - 2 * margin;
+      drawSectionTitle('PROGRESION DIARIA ACUMULADA', margin, margin + 5);
+      const titleAreaH = 12;
+      const cardH = pageH - 2 * margin - titleAreaH;
+      drawChartCard(margin, margin + titleAreaH, cardW, cardH,
+        'Acumulado de Ingresos por Carrera - Progresion Diaria', chartAcum);
+    }
+
+    // ===== PAGINA 4+: Tabla (html2canvas, con split entre paginas) =====
+    const blkTabla = document.getElementById('block-tabla');
+    if (isVisible(blkTabla)) {
+      newPage();
+      const cap = await captureHtml(blkTabla, '#0F0F0F');
+      if (cap.mmH > pageH) {
+        const pxPerMm = cap.canvas.width / pageW;
+        const slicePxH = pageH * pxPerMm;
+        let srcY = 0;
+        let isFirstSlice = true;
+        while (srcY < cap.canvas.height) {
+          if (!isFirstSlice) { pdf.addPage(); drawPageBg(); }
+          isFirstSlice = false;
+          const partPx = Math.min(slicePxH, cap.canvas.height - srcY);
+          const slice = document.createElement('canvas');
+          slice.width = cap.canvas.width;
+          slice.height = partPx;
+          const ctx = slice.getContext('2d');
+          ctx.fillStyle = '#0F0F0F';
+          ctx.fillRect(0, 0, slice.width, slice.height);
+          ctx.drawImage(cap.canvas, 0, srcY, cap.canvas.width, partPx, 0, 0, cap.canvas.width, partPx);
+          const partMm = partPx / pxPerMm;
+          pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pageW, partMm);
+          srcY += partPx;
+        }
+      } else {
+        pdf.addImage(cap.data, 'JPEG', 0, 0, pageW, cap.mmH);
+      }
+    }
+
+    const fname = `Dashboard_${(currentMes || 'Ingresos').replace(/\s+/g, '_')}.pdf`;
+    pdf.save(fname);
+    showStatus('PDF generado: ' + fname, 'ok');
+  } catch (err) {
+    console.error('[PDF Dark]', err);
+    showStatus('Error al generar PDF: ' + err.message, 'error');
+  } finally {
+    // Restaurar DPRs originales
+    charts.forEach((ch, i) => {
+      if (!ch || originalDPRs[i] == null) return;
+      ch.options.devicePixelRatio = originalDPRs[i];
+    });
+    document.body.classList.remove('pdf-export-mode');
+    await new Promise(r => requestAnimationFrame(r));
+    charts.forEach(ch => {
+      if (!ch) return;
+      try { ch.resize(); ch.update('none'); } catch (e) {}
+    });
+    if (btn) { btn.disabled = false; btn.innerHTML = '&#x2B07; PDF Dark Mode'; }
+  }
 }
 
 // ── GOOGLE DRIVE ───────────────────────────────────────────────────────────
@@ -967,6 +1618,7 @@ function buildKPIsYtd(races, totales, gtTotal) {
       '<div class="kpi-sub">MP: $' + t.mp.toLocaleString('es-AR') + '<br>Ef: $' + t.ef.toLocaleString('es-AR') + '</div>' +
       '<div class="kpi-pct" style="color:#FCD34D">' + pct + '% del YTD</div></div>';
   }).join('');
+  if (typeof fitAllKpiValues === 'function') fitAllKpiValues();
 }
 
 function updateHeaderYtd(races, totales, year, mesIdx, mesesCargados) {
@@ -1083,6 +1735,8 @@ function wireEvents() {
     } catch(err) { showStatus('Error: ' + err.message, 'error'); }
   });
 
+  const btnPdfDark = document.getElementById('btnPdfDark');
+  if (btnPdfDark) btnPdfDark.addEventListener('click', exportDarkPdf);
   document.getElementById('btnConfig').addEventListener('click', openConfigModal);
   document.getElementById('btnCfgClose').addEventListener('click', closeConfigModal);
   document.getElementById('btnCfgCancel').addEventListener('click', closeConfigModal);
@@ -1094,6 +1748,44 @@ function wireEvents() {
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && document.getElementById('configModal').style.display !== 'none') closeConfigModal();
   });
+
+  // ── Print theme: re-render charts con colores CIAF claros al imprimir ──
+  const DARK_THEME = {
+    legend: '#F0F4F8',
+    tick:   'rgba(240,244,248,0.40)',
+    grid:   'rgba(255,255,255,0.05)',
+    donutBorder: '#0F0F0F'
+  };
+  const PRINT_THEME = {
+    legend: '#0F2747',
+    tick:   '#1A1A1A',
+    grid:   '#E8E5DE',
+    donutBorder: '#FFFFFF'
+  };
+  function applyChartTheme(theme) {
+    [chartDonut, chartMpEf, chartAcum].forEach(ch => {
+      if (!ch) return;
+      if (ch.options.plugins && ch.options.plugins.legend && ch.options.plugins.legend.labels) {
+        ch.options.plugins.legend.labels.color = theme.legend;
+      }
+      if (ch.options.scales) {
+        ['x','y'].forEach(ax => {
+          if (ch.options.scales[ax]) {
+            if (ch.options.scales[ax].ticks) ch.options.scales[ax].ticks.color = theme.tick;
+            if (ch.options.scales[ax].grid)  ch.options.scales[ax].grid.color  = theme.grid;
+          }
+        });
+      }
+      // Donut border
+      if (ch.config.type === 'doughnut' && ch.data.datasets[0]) {
+        ch.data.datasets[0].borderColor = theme.donutBorder;
+      }
+      ch.update('none');
+    });
+  }
+  // PDF dark → charts mantienen su tema oscuro original (no aplicar PRINT_THEME)
+  // window.addEventListener('beforeprint', () => applyChartTheme(PRINT_THEME));
+  // window.addEventListener('afterprint',  () => applyChartTheme(DARK_THEME));
 }
 
 async function bootstrap() {

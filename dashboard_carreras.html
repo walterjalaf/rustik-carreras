@@ -1563,16 +1563,11 @@ async function downloadAndParseExcel(fileId, displayMes) {
   });
 }
 
-// ── YTD: recorre Ene→mes seleccionado del mismo año, suma totales por carrera ──
+// ── YTD: suma todos los Excels del Drive (histórico total, sin filtro de año ni mes) ──
 async function loadAndRenderYTD(currentFileId) {
-  const currentFile = FILE_INDEX.find(f => f.id === currentFileId);
-  if (!currentFile) return;
-  const year = currentFile.año;
-  const targetMesIdx = MESES_ES.indexOf(currentFile.mes);
-  if (targetMesIdx < 1) return;
   const filesYTD = FILE_INDEX
-    .filter(f => f.año === year && MESES_ES.indexOf(f.mes) <= targetMesIdx && MESES_ES.indexOf(f.mes) >= 1)
-    .sort((a,b) => MESES_ES.indexOf(a.mes) - MESES_ES.indexOf(b.mes));
+    .slice()
+    .sort((a,b) => a.sortKey - b.sortKey);
 
   if (!filesYTD.length) return;
 
@@ -1613,7 +1608,7 @@ async function loadAndRenderYTD(currentFileId) {
   upsertRaceRegistry(racesYtd, labelsYtd);
   const gtYtd = racesYtd.reduce((s,k) => s + totalsYtd[k].mp + totalsYtd[k].ef, 0);
   buildKPIsYtd(racesYtd, totalsYtd, gtYtd);
-  updateHeaderYtd(racesYtd, totalsYtd, year, targetMesIdx, mesesCargados);
+  updateHeaderYtd(racesYtd, totalsYtd, mesesCargados);
 }
 
 function buildKPIsYtd(races, totales, gtTotal) {
@@ -1633,7 +1628,7 @@ function buildKPIsYtd(races, totales, gtTotal) {
   if (typeof fitAllKpiValues === 'function') fitAllKpiValues();
 }
 
-function updateHeaderYtd(races, totales, year, mesIdx, mesesCargados) {
+function updateHeaderYtd(races, totales, mesesCargados) {
   const mpTotal = races.reduce((s,k) => s + totales[k].mp, 0);
   const efTotal = races.reduce((s,k) => s + totales[k].ef, 0);
   const gtTotal = mpTotal + efTotal;
@@ -1645,9 +1640,8 @@ function updateHeaderYtd(races, totales, year, mesIdx, mesesCargados) {
   const efEl = document.getElementById('heroYtdEfPct');
   if (mpEl) mpEl.textContent = mpPct + '%';
   if (efEl) efEl.textContent = efPct + '%';
-  const rango = mesIdx === 1 ? 'Enero ' + year : 'Enero - ' + MESES_ES[mesIdx] + ' ' + year;
   const rangoEl = document.getElementById('heroYtdRange');
-  if (rangoEl) rangoEl.textContent = rango + ' (' + mesesCargados + ' meses)';
+  if (rangoEl) rangoEl.textContent = 'Acumulado total · Todos los Excels (' + mesesCargados + ' meses)';
 }
 
 function populateMonthSelect(parsedFiles) {

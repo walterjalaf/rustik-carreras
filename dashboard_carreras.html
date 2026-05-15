@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Ingresos por Carrera — CIAF</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:         #0F0F0F;
+  --surface:    #1A1A1A;
+  --surface-2:  #141414;
+  --surface-3:  #222222;
+  --border:     rgba(255,255,255,0.08);
+  --border-2:   rgba(255,255,255,0.04);
+  --cyan:       #22D3EE;
+  --cyan-2:     #67E8F9;
+  --cyan-dim:   rgba(34,211,238,0.12);
+  --green:      #4ADE80;
+  --text:       #F0F4F8;
+  --text-muted: rgba(240,244,248,0.50);
+  --text-dim:   rgba(240,244,248,0.25);
+  --header:     #142337;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }
+
+/* ── NAVBAR ─────────────────────────────────────────────── */
+.navbar {
+  background: var(--header);
+  border-bottom: 1px solid rgba(34,211,238,0.12);
+  padding: 0 36px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 0 0 auto;
+}
+.nav-logo   { height: 46px; width: auto; object-fit: contain; }
+.nav-title  { font-size: 0.95rem; font-weight: 700; color: var(--text); letter-spacing: -.3px; white-space: nowrap; }
+.nav-sub    { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; white-space: nowrap; }
+
+.nav-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 28px;
+}
+.month-select {
+  max-width: 420px;
+  flex: 1;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+}
+.month-select:focus { outline: none; border-color: var(--cyan); }
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 0 0 auto;
+}
+.nav-total          { text-align: right; }
+.nav-total-label    { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 1.3px; color: var(--text-dim); display: block; }
+.nav-total-value    { font-size: 1.55rem; font-weight: 800; color: var(--cyan); letter-spacing: -.5px; line-height: 1.1; display: block; }
+.nav-total-mes      { font-size: 0.68rem; color: var(--text-muted); display: block; margin-top: 1px; }
+
+.btn-icon {
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 8px;
+  padding: 7px 13px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  white-space: nowrap;
+  transition: border-color .15s, color .15s;
+}
+.btn-icon:hover { border-color: var(--cyan); color: var(--text); }
+
+#uploadStatus { font-size: 0.7rem; max-width: 180px; }
+
+/* ── CONTAINER ──────────────────────────────────────────── */
+.container { padding: 28px 36px; max-width: 1700px; margin: 0 auto; }
+
+/* ── PRINT CONTROLS ─────────────────────────────────────── */
+.print-controls {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 18px;
+  margin-bottom: 26px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.print-controls-label { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--cyan); white-space: nowrap; }
+.print-check-item { display: flex; align-items: center; gap: 5px; font-size: 0.74rem; color: var(--text-muted); cursor: pointer; user-select: none; }
+.print-check-item input[type=checkbox] { accent-color: var(--cyan); width: 13px; height: 13px; cursor: pointer; }
+.print-btn {
+  margin-left: auto;
+  background: var(--cyan);
+  color: #0F0F0F;
+  border: none;
+  border-radius: 7px;
+  padding: 7px 18px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s;
+}
+.print-btn:hover { background: var(--cyan-2); }
+
+/* ── BLOCK LABEL ─────────────────────────────────────────── */
+.block-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: rgba(34,211,238,0.35);
+  margin-bottom: 10px;
+  padding-left: 2px;
+}
+
+/* ── KPI GRID ────────────────────────────────────────────── */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(230px,1fr)); gap: 16px; margin-bottom: 28px; }
+.kpi-card {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 24px 26px 20px;
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s, transform .15s;
+}
+.kpi-card:hover { border-color: rgba(34,211,238,0.28); transform: translateY(-1px); }
+.kpi-icon   { font-size: 1.3rem; margin-bottom: 10px; }
+.kpi-label  { font-size: 0.63rem; text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-muted); margin-bottom: 10px; font-weight: 600; }
+.kpi-value  {
+  font-size: clamp(1.4rem, 1.3vw + 0.9rem, 2.15rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+}
+.kpi-sub    { font-size: 0.7rem; color: var(--text-muted); margin-top: 10px; line-height: 1.55; font-variant-numeric: tabular-nums; }
+.kpi-pct    { font-size: 0.7rem; font-weight: 600; margin-top: 5px; color: var(--green); }
+
+/* ── RESUMEN GRID (hero + KPIs) ─────────────────────────── */
+.resumen-grid { display:grid; grid-template-columns: minmax(260px,340px) 1fr; gap:24px; margin-bottom:32px; }
+@media (max-width:900px){ .resumen-grid{ grid-template-columns:1fr; } }
+.hero-total {
+  background: linear-gradient(135deg,#142337 0%,#0F1A29 100%);
+  border: 1px solid rgba(34,211,238,0.28);
+  border-radius: 18px;
+  padding: 28px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: center;
+  box-shadow: 0 0 0 1px rgba(34,211,238,0.05), 0 14px 44px rgba(34,211,238,0.09);
+}
+.hero-label { font-size:.72rem; letter-spacing:.2em; text-transform:uppercase; color:var(--cyan-2); font-weight:700; }
+.hero-value { font-family:'JetBrains Mono',monospace; font-size:2.5rem; font-weight:800; line-height:1; color:var(--text); letter-spacing:-.03em; }
+.hero-meta  { display:flex; flex-direction:column; gap:7px; }
+.hero-mes   { font-size:.83rem; color:var(--text-muted); text-transform:capitalize; }
+.hero-split { font-size:.83rem; color:var(--text-muted); }
+.hero-split b { color:var(--cyan); font-weight:700; font-family:'JetBrains Mono',monospace; }
+.kpi-grid--compact { grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-bottom:0; }
+.kpi-grid--compact .kpi-card { padding:18px 16px; }
+
+/* ── HERO YTD (variante ámbar para diferenciar del mensual) ── */
+.hero-total--ytd {
+  background: linear-gradient(135deg,#2A2010 0%,#1F1808 100%);
+  border: 1px solid rgba(251,191,36,0.28);
+  box-shadow: 0 0 0 1px rgba(251,191,36,0.05), 0 14px 44px rgba(251,191,36,0.09);
+}
+.hero-total--ytd .hero-label { color:#FCD34D; }
+.hero-total--ytd .hero-split b { color:#FBBF24; }
+#block-resumen-ytd { margin-top: 8px; }
+#block-resumen-ytd .block-label::before { background:#FBBF24 !important; }
+
+/* ── YTD cards: más anchas y simplificadas (sin MP/Ef detail) ── */
+#block-resumen-ytd .kpi-grid--compact {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+#block-resumen-ytd .kpi-sub { display: none; }
+#block-resumen-ytd .kpi-pct { margin-top: 14px; color: #FCD34D; }
+
+/* ── CHARTS ──────────────────────────────────────────────── */
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+.chart-card {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 22px 24px;
+  border: 1px solid var(--border);
+}
+.chart-card.full { grid-column: 1/-1; }
+.chart-title {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-2);
+  letter-spacing: -.1px;
+}
+
+/* ── SECTION TITLE ───────────────────────────────────────── */
+.section-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-title::before { content:''; display:block; width:3px; height:16px; background:var(--cyan); border-radius:2px; }
+
+/* ── TABLE ───────────────────────────────────────────────── */
+.table-wrap {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+table { width: 100%; border-collapse: collapse; font-size: 0.75rem; font-family: 'JetBrains Mono',monospace; }
+th {
+  background: rgba(34,211,238,0.07);
+  padding: 8px 12px;
+  text-align: right;
+  color: var(--text-muted);
+  font-family: 'Inter',sans-serif;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+th:first-child { text-align: left; }
+td { padding: 7px 12px; text-align: right; border-bottom: 1px solid var(--border-2); color: var(--text); white-space: nowrap; }
+td:first-child { text-align: left; color: var(--text); font-weight: 500; font-family: 'Inter',sans-serif; }
+tr:hover td { background: rgba(255,255,255,0.02); }
+tr.week-sep td { border-top: 1px dashed var(--border); }
+tr.total-row td { background: var(--cyan-dim); font-weight: 700; color: var(--text); border-top: 1px solid rgba(34,211,238,0.3); font-size: 0.8rem; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+tr.subtotal-mp td { background: rgba(34,211,238,0.06); color: var(--text); font-weight: 500; }
+tr.subtotal-ef td { background: rgba(34,211,238,0.03); color: var(--text-muted); font-weight: 500; }
+.pill { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 0.6rem; font-weight: 700; font-family: 'Inter',sans-serif; }
+.pill-mp { background: rgba(34,211,238,0.15); color: var(--cyan); }
+.pill-ef { background: rgba(240,244,248,0.08); color: var(--text-muted); }
+
+/* ── FOOTER ──────────────────────────────────────────────── */
+footer { text-align: center; padding: 20px; color: var(--text-dim); font-size: 0.7rem; border-top: 1px solid var(--border-2); margin-top: 8px; }
+
+/* ── MODAL ───────────────────────────────────────────────── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.72); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-dialog { background: var(--surface); border: 1px solid var(--border); border-top: 2px solid var(--cyan); border-radius: 14px; width: min(520px,92vw); box-shadow: 0 20px 60px rgba(0,0,0,0.65); }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid var(--border); }
+.modal-header h2 { font-size: 0.92rem; color: var(--text); font-weight: 700; margin: 0; }
+.modal-close { background: transparent; border: 0; color: var(--text-dim); font-size: 1.3rem; cursor: pointer; padding: 0 4px; line-height: 1; }
+.modal-close:hover { color: var(--text); }
+.modal-body { padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; }
+.modal-footer { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 22px; border-top: 1px solid var(--border); }
+.cfg-label { display: flex; flex-direction: column; gap: 6px; font-size: 0.75rem; color: var(--text-muted); }
+.cfg-input { width: 100%; color: var(--text); background: var(--surface-3); border: 1px solid var(--border); border-radius: 7px; padding: 8px 12px; font-size: 0.78rem; font-family: 'Inter',sans-serif; }
+.cfg-input:focus { outline: none; border-color: var(--cyan); }
+.cfg-input::placeholder { color: var(--text-dim); }
+.cfg-help { font-size: 0.7rem; color: var(--text-muted); line-height: 1.55; background: var(--cyan-dim); border-left: 2px solid var(--cyan); padding: 8px 12px; border-radius: 4px; }
+.cfg-test { font-size: 0.75rem; min-height: 1.1em; }
+.cfg-test.ok    { color: var(--green); }
+.cfg-test.error { color: #F87171; }
+
+/* Compat aliases used by JS-generated modal buttons */
+.upload-btn { background: var(--cyan); color: #0F0F0F; border: none; border-radius: 7px; padding: 7px 16px; font-size: 0.78rem; cursor: pointer; font-weight: 700; font-family: 'Inter',sans-serif; transition: background .15s; }
+.upload-btn:hover { background: var(--cyan-2); }
+.upload-btn-sec { background: var(--surface-3); color: var(--text-muted); border: 1px solid var(--border); border-radius: 7px; padding: 7px 14px; font-size: 0.78rem; cursor: pointer; font-weight: 500; font-family: 'Inter',sans-serif; transition: background .15s; }
+.upload-btn-sec:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+.sheet-input { background: var(--surface-3); border: 1px solid var(--border); border-radius: 7px; padding: 7px 12px; color: var(--text); font-size: 0.78rem; font-family: 'Inter',sans-serif; }
+.sheet-input:focus { outline: none; border-color: var(--cyan); }
+
+/* ── PRINT ───────────────────────────────────────────────── */
+@media print {
+  @page { size: A4 landscape; margin: 10mm; }
+  .navbar .nav-center,
+  .print-controls,
+  .block-label { display: none !important; }
+  body { background: white !important; color: #111 !important; }
+  .navbar { background: #1E4A82 !important; border-bottom: none !important; position: static; }
+  .nav-title, .nav-sub { color: white !important; }
+  .nav-total-label, .nav-total-mes { color: rgba(255,255,255,0.55) !important; }
+  .nav-total-value { color: white !important; font-size: 1.2rem !important; }
+  .btn-icon { display: none !important; }
+  #uploadStatus { display: none !important; }
+  .kpi-card, .chart-card, .table-wrap { background: white !important; border-color: rgba(0,0,0,0.10) !important; box-shadow: none !important; }
+  .kpi-card { page-break-inside: avoid; break-inside: avoid; }
+  .chart-card, .table-wrap { page-break-inside: avoid; break-inside: avoid; }
+  .hero-total { background: #1E4A82 !important; border-color: transparent !important; box-shadow: none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .hero-total--ytd { background: #7A5C0E !important; }
+  .hero-value { color: white !important; font-size:1.65rem !important; }
+  .hero-label { color: rgba(255,255,255,0.75) !important; }
+  .hero-mes, .hero-split { color: rgba(255,255,255,0.65) !important; }
+  .hero-split b { color: #67E8F9 !important; }
+  .hero-total--ytd .hero-split b { color: #FCD34D !important; }
+  .resumen-grid { grid-template-columns: 220px 1fr !important; gap: 14px !important; margin-bottom: 16px !important; }
+  .kpi-value { color: #0E1F33 !important; font-size: 1.35rem !important; }
+  .kpi-label, .kpi-sub, .kpi-pct { color: #6B7280 !important; }
+  .kpi-grid--compact { grid-template-columns: repeat(5, 1fr) !important; gap: 8px !important; }
+  #block-resumen-ytd .kpi-grid--compact { grid-template-columns: repeat(5, 1fr) !important; }
+  .kpi-grid--compact .kpi-card { padding: 12px 12px !important; }
+  #block-resumen-ytd { page-break-before: always; break-before: page; margin-top: 0 !important; }
+  td { color: #111 !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
+  .chart-title, .section-title { color: #111 !important; }
+  .section-title::before { background: #1E4A82 !important; }
+  th, tr.total-row td, tr.subtotal-mp td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .block-hidden { display: none !important; }
+  .container { padding: 10px 14px; }
+  .charts-grid { grid-template-columns: 1fr 1fr; page-break-inside: avoid; }
+  #block-charts, #block-acum { page-break-before: always; break-before: page; }
+  footer { display: none !important; }
+}
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-left">
+    <img src="logo_grande.png" class="nav-logo" alt="CIAF">
+    <div>
+      <div class="nav-title">Ingresos por Carrera</div>
+      <div class="nav-sub" id="headerPeriod">Mercado Pago + Efectivo</div>
+    </div>
+  </div>
+
+  <div class="nav-center">
+    <select id="monthSelect" class="month-select"></select>
+    <button class="btn-icon" id="btnReload" type="button" title="Recargar">&#x21bb; Recargar</button>
+  </div>
+
+  <div class="nav-right">
+    <div id="uploadStatus"></div>
+    <button class="btn-icon" id="btnConfig" type="button" title="Configurar Drive">&#9881;</button>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="print-controls" id="printControls">
+    <span class="print-controls-label">Imprimir:</span>
+    <label class="print-check-item"><input type="checkbox" id="chk-resumen" checked> KPIs</label>
+    <label class="print-check-item"><input type="checkbox" id="chk-resumen-ytd" checked> KPIs YTD</label>
+    <label class="print-check-item"><input type="checkbox" id="chk-charts" checked> Gráficos</label>
+    <label class="print-check-item"><input type="checkbox" id="chk-acum"   checked> Progresión</label>
+    <label class="print-check-item"><input type="checkbox" id="chk-tabla"  checked> Tabla</label>
+    <button class="print-btn" onclick="printSelected()">&#x2399; Imprimir selección</button>
+  </div>
+
+  <div id="block-resumen">
+    <div class="resumen-grid">
+      <aside class="hero-total">
+        <span class="hero-label">Total Recaudado · Mes</span>
+        <span class="hero-value" id="heroTotal">$—</span>
+        <div class="hero-meta">
+          <span class="hero-mes" id="heroMes">—</span>
+          <span class="hero-split"><b id="heroMpPct">—</b> MP · <b id="heroEfPct">—</b> Efectivo</span>
+        </div>
+      </aside>
+      <div>
+        <div class="block-label">Resumen por Carrera — Mes</div>
+        <div class="kpi-grid kpi-grid--compact" id="kpiGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="block-resumen-ytd">
+    <div class="resumen-grid">
+      <aside class="hero-total hero-total--ytd">
+        <span class="hero-label">Acumulado Anual · YTD</span>
+        <span class="hero-value" id="heroTotalYtd">$—</span>
+        <div class="hero-meta">
+          <span class="hero-mes" id="heroYtdRange">—</span>
+          <span class="hero-split"><b id="heroYtdMpPct">—</b> MP · <b id="heroYtdEfPct">—</b> Efectivo</span>
+        </div>
+      </aside>
+      <div>
+        <div class="block-label">Resumen por Carrera — Acumulado Anual (YTD)</div>
+        <div class="kpi-grid kpi-grid--compact" id="kpiGridYtd"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="block-charts">
+    <div class="block-label">Distribución y Comparativa</div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Participación por Carrera en el Total</div>
+        <div style="height:280px;position:relative;"><canvas id="chartDonut"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">MP vs Efectivo por Carrera</div>
+        <div style="height:280px;position:relative;"><canvas id="chartMpEf"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="block-acum">
+    <div class="block-label">Progresión Diaria Acumulada</div>
+    <div class="chart-card full" style="margin-bottom:24px;">
+      <div class="chart-title">Acumulado de Ingresos por Carrera — Progresión Diaria</div>
+      <div style="height:280px;position:relative;"><canvas id="chartAcum"></canvas></div>
+    </div>
+  </div>
+
+  <div id="block-tabla">
+    <div class="block-label">Conciliación Diaria</div>
+    <div class="section-title">Conciliación Diaria de Ingresos</div>
+    <div class="table-wrap">
+      <table><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table>
+    </div>
+  </div>
+
+</div>
+
+<footer id="footerText">Dashboard — Conciliación de Ingresos por Carrera | CIAF</footer>
+
+<div id="configModal" class="modal-overlay" style="display:none;">
+  <div class="modal-dialog" role="dialog" aria-labelledby="cfgTitle">
+    <div class="modal-header">
+      <h2 id="cfgTitle">Configurar Google Drive</h2>
+      <button class="modal-close" id="btnCfgClose" type="button" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <label class="cfg-label">API Key de Google
+        <input type="password" id="cfgApiKey" class="cfg-input" autocomplete="off" spellcheck="false" placeholder="AIza...">
+      </label>
+      <label class="cfg-label">Folder ID de Google Drive
+        <input type="text" id="cfgFolderId" class="cfg-input" autocomplete="off" spellcheck="false" placeholder="1AbCdEf...">
+      </label>
+      <p class="cfg-help">
+        El Folder ID es la parte final de la URL: drive.google.com/drive/folders/<strong>ESTE_SEGMENTO</strong>.<br>
+        La carpeta debe estar compartida como "Cualquier persona con el enlace — Lector".
+      </p>
+      <div id="cfgTestResult" class="cfg-test"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="upload-btn-sec" id="btnCfgTest" type="button">Probar conexi&#243;n</button>
+      <button class="upload-btn-sec" id="btnCfgCancel" type="button">Cancelar</button>
+      <button class="upload-btn" id="btnCfgSave" type="button">Guardar y conectar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const RACE_PALETTE = [
+  { color:'#22D3EE', vc:'#67E8F9', pc:'#4ADE80', bg:'rgba(34,211,238,0.10)'  }, // cyan
+  { color:'#F472B6', vc:'#F9A8D4', pc:'#4ADE80', bg:'rgba(244,114,182,0.10)' }, // rosa
+  { color:'#FBBF24', vc:'#FCD34D', pc:'#4ADE80', bg:'rgba(251,191,36,0.10)'  }, // ámbar
+  { color:'#4ADE80', vc:'#86EFAC', pc:'#4ADE80', bg:'rgba(74,222,128,0.10)'  }, // verde
+  { color:'#FB7185', vc:'#FDA4AF', pc:'#4ADE80', bg:'rgba(251,113,133,0.10)' }, // coral
+  { color:'#A78BFA', vc:'#C4B5FD', pc:'#4ADE80', bg:'rgba(167,139,250,0.10)' }, // violeta
+  { color:'#FB923C', vc:'#FDBA74', pc:'#4ADE80', bg:'rgba(251,146,60,0.10)'  }, // naranja
+  { color:'#38BDF8', vc:'#7DD3FC', pc:'#4ADE80', bg:'rgba(56,189,248,0.10)'  }, // celeste
+  { color:'#E879F9', vc:'#F0ABFC', pc:'#4ADE80', bg:'rgba(232,121,249,0.10)' }, // magenta
+  { color:'#A3E635', vc:'#BEF264', pc:'#4ADE80', bg:'rgba(163,230,53,0.10)'  }  // lima
+];
+const RACE_ICON = '🏁';
+let RACE_REGISTRY = {};
+const MESES_ES = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+let currentDias   = [];
+let currentData   = {};
+let currentRaces  = [];
+let currentMes    = '';
+let loadedFileId  = null;
+
+const fmt     = v => v===0 ? '—' : '$'+v.toLocaleString('es-AR');
+const fmtK    = v => '$'+(v/1000000).toFixed(2)+'M';
+const parseARS= s => { const n=parseInt((s||'0').replace(/"/g,'').replace(/[$\. ]/g,'').split(',')[0]); return isNaN(n)?0:n; };
+const semanas = [7,14,21,28];
+const rc      = key => RACE_REGISTRY[key] || { key, label:key, short:key, icon:RACE_ICON, color:'#22D3EE', vc:'#67E8F9', pc:'#4ADE80', bg:'rgba(34,211,238,0.10)' };
+
+function calcTotals(dias,data,races){
+  const t={};
+  races.forEach(k=>{t[k]={mp:0,ef:0};});
+  for(let i=0;i<dias.length;i++) races.forEach(k=>{t[k].mp+=(data[k]?.mp[i]||0);t[k].ef+=(data[k]?.ef[i]||0);});
+  return t;
+}
+
+function buildKPIs(races,totales,gtTotal){
+  document.getElementById('kpiGrid').innerHTML=races.map(key=>{
+    const r=rc(key),t=totales[key],tot=t.mp+t.ef;
+    const pct=gtTotal>0?((tot/gtTotal)*100).toFixed(1):'0';
+    return `<div class="kpi-card">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${r.color};border-radius:14px 14px 0 0"></div>
+      <div class="kpi-label">${r.label}</div>
+      <div class="kpi-value" style="color:${r.vc}">$${tot.toLocaleString('es-AR')}</div>
+      <div class="kpi-sub">MP: $${t.mp.toLocaleString('es-AR')}<br>Ef: $${t.ef.toLocaleString('es-AR')}</div>
+      <div class="kpi-pct">${pct}% del total</div></div>`;
+  }).join('');
+}
+
+function buildTableHeader(races){
+  const rh=races.map(k=>`<th colspan="2" style="text-align:center;border-left:1px solid rgba(255,255,255,0.08);color:${rc(k).vc}">${rc(k).icon} ${rc(k).label}</th>`).join('');
+  const sh=races.map(()=>`<th style="border-left:1px solid rgba(255,255,255,0.06)"><span class="pill pill-mp">MP</span></th><th><span class="pill pill-ef">Ef</span></th>`).join('');
+  document.getElementById('tableHead').innerHTML=`
+    <tr><th>Fecha</th>${rh}<th style="border-left:2px solid rgba(34,211,238,0.4);color:#67E8F9">Total Día</th></tr>
+    <tr><th></th>${sh}<th style="border-left:2px solid rgba(34,211,238,0.4)"></th></tr>`;
+}
+
+function buildTable(dias,data,races){
+  const tbody=document.getElementById('tableBody'); tbody.innerHTML='';
+  const totales=calcTotals(dias,data,races);
+  const gt={}; races.forEach(k=>{gt[k]=totales[k].mp+totales[k].ef;});
+  const gtTotal=Object.values(gt).reduce((a,b)=>a+b,0);
+  dias.forEach((dia,i)=>{
+    const tr=document.createElement('tr');
+    if(semanas.includes(i)) tr.classList.add('week-sep');
+    const totalDia=races.reduce((s,k)=>s+(data[k]?.mp[i]||0)+(data[k]?.ef[i]||0),0);
+    const cells=races.map(k=>`<td style="border-left:1px solid rgba(255,255,255,0.06);color:#67E8F9">${fmt(data[k]?.mp[i]||0)}</td><td style="color:rgba(240,244,248,0.55)">${fmt(data[k]?.ef[i]||0)}</td>`).join('');
+    tr.innerHTML=`<td><strong>${dia}</strong></td>${cells}<td style="border-left:2px solid rgba(34,211,238,0.4);font-weight:600;color:#F0F4F8">${totalDia===0?'—':'$'+totalDia.toLocaleString('es-AR')}</td>`;
+    tbody.appendChild(tr);
+  });
+  const mpSum=races.reduce((s,k)=>s+totales[k].mp,0);
+  const efSum=races.reduce((s,k)=>s+totales[k].ef,0);
+  const trMP=document.createElement('tr'); trMP.className='subtotal-mp';
+  trMP.innerHTML=`<td><span class="pill pill-mp">TOTAL MP</span></td>${races.map(k=>`<td style="border-left:1px solid rgba(255,255,255,0.06)">${fmt(totales[k].mp)}</td><td>—</td>`).join('')}<td style="border-left:2px solid rgba(34,211,238,0.4);font-weight:700">$${mpSum.toLocaleString('es-AR')}</td>`;
+  tbody.appendChild(trMP);
+  const trEF=document.createElement('tr'); trEF.className='subtotal-ef';
+  trEF.innerHTML=`<td><span class="pill pill-ef">TOTAL EFECTIVO</span></td>${races.map(k=>`<td style="border-left:1px solid rgba(255,255,255,0.06)">—</td><td>${fmt(totales[k].ef)}</td>`).join('')}<td style="border-left:2px solid rgba(34,211,238,0.4);font-weight:700">$${efSum.toLocaleString('es-AR')}</td>`;
+  tbody.appendChild(trEF);
+  const trTot=document.createElement('tr'); trTot.className='total-row';
+  trTot.innerHTML=`<td>GRAN TOTAL</td>${races.map(k=>`<td style="border-left:1px solid rgba(255,255,255,0.06)" colspan="2">$${gt[k].toLocaleString('es-AR')}</td>`).join('')}<td style="border-left:2px solid rgba(34,211,238,0.4);font-size:0.85rem">$${gtTotal.toLocaleString('es-AR')}</td>`;
+  tbody.appendChild(trTot);
+}
+
+let chartDonut,chartMpEf,chartAcum;
+const gridColor='rgba(255,255,255,0.05)', tickColor='rgba(240,244,248,0.40)';
+
+const pctOnBars={
+  id:'pctOnBars',
+  afterDatasetsDraw(chart){
+    const {ctx,data}=chart;
+    ctx.save();
+    ctx.font='600 11px Inter';
+    ctx.textAlign='center';
+    data.datasets.forEach((ds,dsi)=>{
+      const meta=chart.getDatasetMeta(dsi);
+      meta.data.forEach((bar,i)=>{
+        const mp=data.datasets[0].data[i]||0;
+        const ef=data.datasets[1].data[i]||0;
+        const total=mp+ef;
+        if(!total) return;
+        const pct=((( ds.data[i]||0)/total)*100).toFixed(0);
+        ctx.fillStyle=bar.y<chart.chartArea.top+20?'rgba(240,244,248,0.55)':'#F0F4F8';
+        ctx.fillText(pct+'%',bar.x,bar.y-7);
+      });
+    });
+    ctx.restore();
+  }
+};
+
+function initCharts(dias,data,races,totales){
+  const gt={}; races.forEach(k=>{gt[k]=totales[k].mp+totales[k].ef;});
+  const gtTotal=Object.values(gt).reduce((a,b)=>a+b,0);
+  const acum=arr=>arr.reduce((acc,v,i)=>{acc.push((acc[i-1]||0)+v);return acc;},[]);
+  if(chartDonut) chartDonut.destroy();
+  if(chartMpEf)  chartMpEf.destroy();
+  if(chartAcum)  chartAcum.destroy();
+  chartDonut=new Chart(document.getElementById('chartDonut'),{type:'doughnut',
+    data:{labels:races.map(k=>rc(k).label),datasets:[{data:races.map(k=>gt[k]),backgroundColor:races.map(k=>rc(k).color),borderColor:'#0F0F0F',borderWidth:3}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'right',labels:{color:'#F0F4F8',padding:18,font:{size:13,family:'Inter'},boxWidth:14}},tooltip:{callbacks:{label:ctx=>{const p=((ctx.raw/gtTotal)*100).toFixed(1);return ` ${ctx.label}: $${ctx.raw.toLocaleString('es-AR')} (${p}%)`;}}}}}});
+  chartMpEf=new Chart(document.getElementById('chartMpEf'),{type:'bar',
+    data:{labels:races.map(k=>rc(k).short),datasets:[{label:'Mercado Pago',data:races.map(k=>totales[k].mp),backgroundColor:'rgba(34,211,238,0.75)',borderColor:'#22D3EE',borderWidth:1,borderRadius:5},{label:'Efectivo',data:races.map(k=>totales[k].ef),backgroundColor:'rgba(129,140,248,0.65)',borderColor:'#818CF8',borderWidth:1,borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:22}},plugins:{pctOnBars:{},legend:{labels:{color:'#F0F4F8',padding:12,font:{size:11,family:'Inter'}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const mp=ctx.chart.data.datasets[0].data[i]||0;const ef=ctx.chart.data.datasets[1].data[i]||0;const total=mp+ef;const pct=total>0?((ctx.raw/total)*100).toFixed(1):'0';return ` ${ctx.dataset.label}: $${ctx.raw.toLocaleString('es-AR')} (${pct}%)`;}}}},scales:{x:{ticks:{color:tickColor,font:{family:'Inter'}},grid:{color:gridColor}},y:{ticks:{color:tickColor,callback:v=>fmtK(v),font:{family:'Inter'}},grid:{color:gridColor}}}},plugins:[pctOnBars]});
+  chartAcum=new Chart(document.getElementById('chartAcum'),{type:'line',
+    data:{labels:dias,datasets:races.map(k=>{const r=rc(k);const daily=dias.map((_,i)=>(data[k]?.mp[i]||0)+(data[k]?.ef[i]||0));return{label:r.short,data:acum(daily),borderColor:r.color,backgroundColor:r.bg,borderWidth:2,pointRadius:2,fill:true,tension:0.3};})},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#F0F4F8',padding:12,font:{size:11,family:'Inter'},boxWidth:12}},tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>` ${ctx.dataset.label}: $${ctx.raw.toLocaleString('es-AR')}`}}},scales:{x:{ticks:{color:tickColor,font:{size:10,family:'Inter'},maxRotation:45},grid:{color:gridColor}},y:{ticks:{color:tickColor,callback:v=>fmtK(v),font:{family:'Inter'}},grid:{color:gridColor}}}}});
+}
+
+function updateHeader(races,totales,mes){
+  const mpTotal=races.reduce((s,k)=>s+totales[k].mp,0);
+  const efTotal=races.reduce((s,k)=>s+totales[k].ef,0);
+  const gtTotal=mpTotal+efTotal;
+  document.getElementById('heroTotal').textContent='$'+gtTotal.toLocaleString('es-AR');
+  const mpPct=gtTotal>0?((mpTotal/gtTotal)*100).toFixed(0):'0';
+  const efPct=gtTotal>0?((efTotal/gtTotal)*100).toFixed(0):'0';
+  document.getElementById('heroMpPct').textContent=mpPct+'%';
+  document.getElementById('heroEfPct').textContent=efPct+'%';
+  if(mes){
+    document.getElementById('headerPeriod').textContent=`${mes} · ${races.length} carreras · MP + Efectivo`;
+    document.getElementById('heroMes').textContent=mes;
+    document.getElementById('footerText').textContent=`Dashboard — Ingresos por Carrera | ${mes} | CIAF`;
+  }
+}
+
+function renderAll(dias,data,races,mes){
+  const totales=calcTotals(dias,data,races);
+  const gtTotal=races.reduce((s,k)=>s+totales[k].mp+totales[k].ef,0);
+  buildKPIs(races,totales,gtTotal);
+  buildTableHeader(races);
+  buildTable(dias,data,races);
+  initCharts(dias,data,races,totales);
+  updateHeader(races,totales,mes);
+}
+
+function showStatus(msg,type){
+  const el=document.getElementById('uploadStatus');
+  el.textContent=msg;
+  el.style.color=type==='ok'?'#4ADE80':type==='error'?'#F87171':'rgba(240,244,248,0.50)';
+}
+
+function printSelected(){
+  const blocks=['resumen','resumen-ytd','charts','acum','tabla'];
+  blocks.forEach(b=>{
+    const el=document.getElementById('block-'+b);
+    const chk=document.getElementById('chk-'+b);
+    if(el) el.classList.toggle('block-hidden',!chk.checked);
+  });
+  window.print();
+  setTimeout(()=>blocks.forEach(b=>{
+    const el=document.getElementById('block-'+b);
+    if(el) el.classList.remove('block-hidden');
+  }),800);
+}
+
+// ── GOOGLE DRIVE ───────────────────────────────────────────────────────────
+const STORAGE_KEY = 'carreras_drive_cfg';
+const DRIVE_API   = 'https://www.googleapis.com/drive/v3/files';
+const GSHEET_MIME = 'application/vnd.google-apps.spreadsheet';
+let CONFIG = {
+  apiKey:   'AIzaSyAduvvGyXxyntmoMJQR_pnczbqatXW8q0c',
+  folderId: '1DooFo_wu8rhPPgO4cSq1KT5so7ZQta5J',
+};
+let FILE_INDEX = [];
+
+function loadConfig() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    if (saved.apiKey)   CONFIG.apiKey   = saved.apiKey;
+    if (saved.folderId) CONFIG.folderId = saved.folderId;
+  } catch(e) {}
+}
+
+function saveConfig(cfg) {
+  CONFIG.apiKey   = cfg.apiKey;
+  CONFIG.folderId = cfg.folderId;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(CONFIG));
+}
+
+function parseMonthFromName(name) {
+  const MONTH_MAP = {};
+  MESES_ES.slice(1).forEach((m, i) => {
+    MONTH_MAP[m.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '')] = i + 1;
+  });
+  const upper = (name || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  let mesIdx = null;
+  for (const [k, v] of Object.entries(MONTH_MAP)) {
+    if (upper.includes(k)) { mesIdx = v; break; }
+  }
+  const yearMatch = upper.match(/\b(20\d{2})\b/);
+  if (!mesIdx || !yearMatch) return null;
+  const año = parseInt(yearMatch[1]);
+  return { mes: MESES_ES[mesIdx], año, sortKey: año * 100 + mesIdx };
+}
+
+async function listFolderFiles() {
+  if (!CONFIG.apiKey || !CONFIG.folderId) throw new Error('Configuración incompleta');
+  const q      = encodeURIComponent(`'${CONFIG.folderId}' in parents and trashed=false`);
+  const fields = encodeURIComponent('files(id,name,mimeType,modifiedTime,size)');
+  const url    = `${DRIVE_API}?q=${q}&key=${encodeURIComponent(CONFIG.apiKey)}&fields=${fields}&pageSize=100&orderBy=modifiedTime desc`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const msg = (err.error && err.error.message) || res.statusText;
+    if (res.status === 400) throw new Error('Folder ID malformado');
+    if (res.status === 401 || res.status === 403) throw new Error('API Key inválida o sin acceso. Verificá restricción HTTP referrer y que la carpeta sea pública');
+    if (res.status === 404) throw new Error('Folder no encontrado');
+    throw new Error('Drive ' + res.status + ': ' + msg);
+  }
+  return (await res.json()).files || [];
+}
+
+function pickExcelFiles(files) {
+  return files
+    .filter(f => f.mimeType === GSHEET_MIME)
+    .map(f => Object.assign({}, f, parseMonthFromName(f.name)))
+    .filter(f => f.sortKey)
+    .sort((a, b) => b.sortKey - a.sortKey || b.modifiedTime.localeCompare(a.modifiedTime));
+}
+
+// ── PARSE-ONLY: descarga una hoja y devuelve {dias,data,races,raceNames} sin tocar estado global ──
+async function fetchAndParseSheet(fileId) {
+  const SHEETS_API = 'https://sheets.googleapis.com/v4/spreadsheets';
+  const TARGET = 'ingresos x carrera';
+  const url = `${SHEETS_API}/${fileId}/values/${encodeURIComponent("'" + TARGET + "'")}?key=${encodeURIComponent(CONFIG.apiKey)}&valueRenderOption=FORMATTED_VALUE`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}));
+    const msg = (errJson.error && errJson.error.message) || res.statusText;
+    if (res.status === 401 || res.status === 403) throw new Error('Sin acceso. Verificá que la hoja sea pública (Cualquier persona con el enlace — Lector)');
+    if (res.status === 404) throw new Error('No se encontró la pestaña "' + TARGET + '" en la hoja');
+    throw new Error('Sheets API ' + res.status + ': ' + msg);
+  }
+  const json = await res.json();
+  const rawValues = json.values || [];
+  if (rawValues.length < 2) throw new Error('La pestaña "' + TARGET + '" está vacía');
+  const maxCols = rawValues.reduce((m, r) => Math.max(m, r.length), 0);
+  const aoa = rawValues.map(r => Array.from({ length: maxCols }, (_, i) => (r[i] != null && r[i] !== '') ? r[i] : null));
+  const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[\s_\-]+/g,'').replace(/[^a-z0-9]/g,'');
+  const MPEF_RE  = /^(mp|ef|efectivo|mercadopago)$/;
+  const FECHA_RE = /^(fecha|dia|day|date|carrerafecha)$/;
+  let foundAt = -1, isTwoRow = false;
+  for (let ri = 0; ri < Math.min(aoa.length, 20); ri++) {
+    const ns = aoa[ri].map(norm);
+    // Case 1: fila tiene ≥2 celdas con sufijo mp/efectivo (encabezados combinados en una sola fila)
+    const combinedCount = ns.filter(n => /(mp|efectivo)$/.test(n) && !MPEF_RE.test(n)).length;
+    if (combinedCount >= 2) { foundAt = ri; isTwoRow = false; break; }
+    // Case 2: fila actual tiene race names, siguiente tiene MP/EF
+    if (ri + 1 < aoa.length) {
+      const nextNs = aoa[ri + 1].map(norm);
+      const mpefCount = nextNs.filter(n => MPEF_RE.test(n)).length;
+      const hasRaceCell = ns.some(n => n && !MPEF_RE.test(n) && !FECHA_RE.test(n));
+      if (mpefCount >= 2 && hasRaceCell) { foundAt = ri; isTwoRow = true; break; }
+    }
+  }
+  if (foundAt < 0) {
+    const sample = aoa.slice(0, 6).map((r, i) => 'F' + i + ':[' + (r||[]).slice(0,8).join('|') + ']').join(' ');
+    throw new Error('No se encontró fila de encabezados en "' + TARGET + '". ' + sample);
+  }
+  let headers, dataStart;
+  const raceNames = {};
+  const row0 = aoa[foundAt];
+  if (isTwoRow) {
+    const row1 = aoa[foundAt + 1] || [];
+    let lastRace = '';
+    let lastRaceEfDone = false;
+    headers = row0.map((h0, i) => {
+      const n0 = norm(h0), n1 = norm(row1[i]);
+      if (FECHA_RE.test(n0) || FECHA_RE.test(n1)) return 'fecha';
+      if (i === 0 && !n0 && !MPEF_RE.test(n1)) return 'fecha';
+      if (n0 && !MPEF_RE.test(n0) && !FECHA_RE.test(n0)) {
+        lastRace = n0;
+        lastRaceEfDone = false;
+        raceNames[n0] = String(h0 || n0).trim();
+      }
+      if (MPEF_RE.test(n1)) {
+        if (n0) return lastRace + n1;
+        if (!lastRaceEfDone) { lastRaceEfDone = true; return lastRace + n1; }
+        return '__col' + i;
+      }
+      return n0 || ('__col' + i);
+    });
+    dataStart = foundAt + 2;
+  } else {
+    headers = row0.map(h => h == null ? '' : String(h));
+    dataStart = foundAt + 1;
+    headers.forEach(h => {
+      const n = norm(h);
+      const m = n.match(/^(.+?)(mp|mercadopago)$/);
+      if (m && m[1] && !FECHA_RE.test(m[1])) {
+        raceNames[m[1]] = String(h).replace(/[\/_\-]?(mp|mercadopago)\s*$/i, '').trim();
+      }
+    });
+  }
+  const rows = aoa.slice(dataStart)
+    .filter(r => r.some(c => c != null && c !== ''))
+    .map(r => { const obj = {}; headers.forEach((h, i) => { obj[h || ('__col' + i)] = r[i]; }); return obj; });
+  const detectedHeaders = headers.filter(Boolean).join(', ');
+  const fechaHeader = headers.find(h => FECHA_RE.test(norm(h)));
+  if (!fechaHeader) throw new Error('Falta columna fecha en "' + TARGET + '". Headers: ' + detectedHeaders);
+
+  const discovered = [];
+  const seen = new Set();
+  for (const h of headers) {
+    const n = norm(h);
+    const m = n.match(/^(.+?)(mp|mercadopago)$/);
+    if (!m) continue;
+    const raceKey = m[1];
+    if (!raceKey || seen.has(raceKey)) continue;
+    const efHeader = headers.find(h2 => {
+      const n2 = norm(h2);
+      return n2 === raceKey + 'ef' || n2 === raceKey + 'efectivo';
+    });
+    discovered.push({ key: raceKey, mpHeader: h, efHeader: efHeader || null });
+    seen.add(raceKey);
+  }
+  if (!discovered.length) throw new Error('No se detectaron columnas MP/EF en "' + TARGET + '". Headers: ' + detectedHeaders);
+
+  const toNum = v => {
+    if (v == null || v === '') return 0;
+    if (typeof v === 'number') return Math.round(v);
+    const n = parseInt(String(v).replace(/[$. ]/g, ''));
+    return isNaN(n) ? 0 : n;
+  };
+  const toFecha = v => {
+    if (v instanceof Date) return String(v.getDate()).padStart(2,'0') + '/' + String(v.getMonth()+1).padStart(2,'0');
+    const s = String(v || '').trim();
+    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})(?:[\/\-]\d{2,4})?/);
+    if (m) return m[1].padStart(2,'0') + '/' + m[2].padStart(2,'0');
+    return s;
+  };
+
+  const races = discovered.map(d => d.key);
+  const nd = {};
+  races.forEach(k => { nd[k] = { mp:[], ef:[] }; });
+  const dias = [];
+  for (const row of rows) {
+    const f = toFecha(row[fechaHeader]);
+    if (!/^\d{2}\/\d{2}$/.test(f)) continue;
+    dias.push(f);
+    discovered.forEach(d => {
+      nd[d.key].mp.push(toNum(row[d.mpHeader]));
+      nd[d.key].ef.push(d.efHeader ? toNum(row[d.efHeader]) : 0);
+    });
+  }
+  if (!dias.length) throw new Error('Sin filas válidas en la hoja');
+  return { dias, data: nd, races, raceNames };
+}
+
+// ── REGISTRY: upsert (no destruye colores asignados a carreras previas) ──
+function upsertRaceRegistry(races, raceNames) {
+  races.forEach(k => {
+    const newLabel = raceNames[k];
+    if (RACE_REGISTRY[k]) {
+      if (newLabel && !RACE_REGISTRY[k]._labelLocked) {
+        const isShortAllCaps = newLabel === newLabel.toUpperCase() && newLabel.length <= 5;
+        const label = isShortAllCaps ? newLabel : newLabel.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+        RACE_REGISTRY[k].label = label;
+        RACE_REGISTRY[k].short = label.split(/\s+/).slice(0, 2).join(' ').slice(0, 14);
+        RACE_REGISTRY[k]._labelLocked = true;
+      }
+      return;
+    }
+    const palette = RACE_PALETTE[Object.keys(RACE_REGISTRY).length % RACE_PALETTE.length];
+    const origName = newLabel || '';
+    const isShortAllCaps = origName && origName === origName.toUpperCase() && origName.length <= 5;
+    const label = origName
+      ? (isShortAllCaps ? origName : origName.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()))
+      : k;
+    const short = label.split(/\s+/).slice(0, 2).join(' ').slice(0, 14);
+    RACE_REGISTRY[k] = { key:k, label, short, icon:RACE_ICON, ...palette, _labelLocked: !!origName };
+  });
+}
+
+// ── YTD: cache de hojas parseadas por fileId ──
+let YTD_CACHE = {};
+
+async function downloadAndParseExcel(fileId, displayMes) {
+  showStatus('Cargando...', 'info');
+  // Reset registry para que las carreras del mes elegido manden el orden de colores
+  RACE_REGISTRY = {};
+  const parsed = await fetchAndParseSheet(fileId);
+  YTD_CACHE[fileId] = parsed;
+  upsertRaceRegistry(parsed.races, parsed.raceNames);
+  console.log('[CIAF] Carreras detectadas:', parsed.races);
+  console.log('[CIAF] RACE_REGISTRY:', Object.keys(RACE_REGISTRY));
+  currentDias  = parsed.dias;
+  currentData  = parsed.data;
+  currentRaces = parsed.races;
+  currentMes   = displayMes;
+  renderAll(currentDias, currentData, currentRaces, currentMes);
+  showStatus('Cargado: ' + displayMes + ' · ' + parsed.races.length + ' carreras', 'ok');
+  loadedFileId = fileId;
+  // Disparar acumulado YTD en background (no bloquea el render del mes)
+  loadAndRenderYTD(fileId).catch(err => {
+    console.warn('[YTD] Error:', err);
+    const el = document.getElementById('heroTotalYtd');
+    if (el) el.textContent = '—';
+    const er = document.getElementById('heroYtdRange');
+    if (er) er.textContent = 'YTD no disponible';
+  });
+}
+
+// ── YTD: recorre Ene→mes seleccionado del mismo año, suma totales por carrera ──
+async function loadAndRenderYTD(currentFileId) {
+  const currentFile = FILE_INDEX.find(f => f.id === currentFileId);
+  if (!currentFile) return;
+  const year = currentFile.año;
+  const targetMesIdx = MESES_ES.indexOf(currentFile.mes);
+  if (targetMesIdx < 1) return;
+  const filesYTD = FILE_INDEX
+    .filter(f => f.año === year && MESES_ES.indexOf(f.mes) <= targetMesIdx && MESES_ES.indexOf(f.mes) >= 1)
+    .sort((a,b) => MESES_ES.indexOf(a.mes) - MESES_ES.indexOf(b.mes));
+
+  if (!filesYTD.length) return;
+
+  // Descargar y parsear los meses faltantes
+  for (const f of filesYTD) {
+    if (YTD_CACHE[f.id] === undefined) {
+      try {
+        YTD_CACHE[f.id] = await fetchAndParseSheet(f.id);
+      } catch(err) {
+        console.warn('[YTD] No se pudo cargar', f.name, err.message);
+        YTD_CACHE[f.id] = null;
+      }
+    }
+  }
+
+  // Acumular totales por carrera
+  const totalsYtd = {};
+  const labelsYtd = {};
+  let mesesCargados = 0;
+  for (const f of filesYTD) {
+    const p = YTD_CACHE[f.id];
+    if (!p) continue;
+    mesesCargados++;
+    p.races.forEach(k => {
+      if (!totalsYtd[k]) totalsYtd[k] = { mp:0, ef:0 };
+      labelsYtd[k] = p.raceNames[k] || labelsYtd[k] || k;
+      let mpSum = 0, efSum = 0;
+      for (let i = 0; i < p.data[k].mp.length; i++) mpSum += p.data[k].mp[i] || 0;
+      for (let i = 0; i < p.data[k].ef.length; i++) efSum += p.data[k].ef[i] || 0;
+      totalsYtd[k].mp += mpSum;
+      totalsYtd[k].ef += efSum;
+    });
+  }
+
+  const racesYtd = Object.keys(totalsYtd).sort(
+    (a,b) => (totalsYtd[b].mp + totalsYtd[b].ef) - (totalsYtd[a].mp + totalsYtd[a].ef)
+  );
+  upsertRaceRegistry(racesYtd, labelsYtd);
+  const gtYtd = racesYtd.reduce((s,k) => s + totalsYtd[k].mp + totalsYtd[k].ef, 0);
+  buildKPIsYtd(racesYtd, totalsYtd, gtYtd);
+  updateHeaderYtd(racesYtd, totalsYtd, year, targetMesIdx, mesesCargados);
+}
+
+function buildKPIsYtd(races, totales, gtTotal) {
+  const el = document.getElementById('kpiGridYtd');
+  if (!el) return;
+  if (!races.length) { el.innerHTML = '<div class="kpi-card" style="opacity:.55">Sin datos YTD</div>'; return; }
+  el.innerHTML = races.map(key => {
+    const r = rc(key), t = totales[key], tot = t.mp + t.ef;
+    const pct = gtTotal > 0 ? ((tot / gtTotal) * 100).toFixed(1) : '0';
+    return '<div class="kpi-card">' +
+      '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:' + r.color + ';border-radius:14px 14px 0 0"></div>' +
+      '<div class="kpi-label">' + r.label + '</div>' +
+      '<div class="kpi-value" style="color:' + r.vc + '">$' + tot.toLocaleString('es-AR') + '</div>' +
+      '<div class="kpi-sub">MP: $' + t.mp.toLocaleString('es-AR') + '<br>Ef: $' + t.ef.toLocaleString('es-AR') + '</div>' +
+      '<div class="kpi-pct" style="color:#FCD34D">' + pct + '% del YTD</div></div>';
+  }).join('');
+}
+
+function updateHeaderYtd(races, totales, year, mesIdx, mesesCargados) {
+  const mpTotal = races.reduce((s,k) => s + totales[k].mp, 0);
+  const efTotal = races.reduce((s,k) => s + totales[k].ef, 0);
+  const gtTotal = mpTotal + efTotal;
+  const heroEl = document.getElementById('heroTotalYtd');
+  if (heroEl) heroEl.textContent = '$' + gtTotal.toLocaleString('es-AR');
+  const mpPct = gtTotal > 0 ? ((mpTotal / gtTotal) * 100).toFixed(0) : '0';
+  const efPct = gtTotal > 0 ? ((efTotal / gtTotal) * 100).toFixed(0) : '0';
+  const mpEl = document.getElementById('heroYtdMpPct');
+  const efEl = document.getElementById('heroYtdEfPct');
+  if (mpEl) mpEl.textContent = mpPct + '%';
+  if (efEl) efEl.textContent = efPct + '%';
+  const rango = mesIdx === 1 ? 'Enero ' + year : 'Enero - ' + MESES_ES[mesIdx] + ' ' + year;
+  const rangoEl = document.getElementById('heroYtdRange');
+  if (rangoEl) rangoEl.textContent = rango + ' (' + mesesCargados + ' meses)';
+}
+
+function populateMonthSelect(parsedFiles) {
+  const sel = document.getElementById('monthSelect');
+  sel.innerHTML = '';
+  if (!parsedFiles.length) {
+    const opt = document.createElement('option');
+    opt.disabled = true; opt.selected = true;
+    opt.textContent = 'Sin hojas detectadas';
+    sel.appendChild(opt);
+    showStatus('La carpeta no tiene hojas con mes+año detectables en el nombre', 'error');
+    return;
+  }
+  parsedFiles.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f.id;
+    opt.dataset.mes      = f.mes + ' ' + f.año;
+    opt.dataset.mimeType = f.mimeType || '';
+    opt.textContent = f.mes + ' ' + f.año + ' — ' + f.name;
+    sel.appendChild(opt);
+  });
+  sel.value = parsedFiles[0].id;
+}
+
+function openConfigModal() {
+  document.getElementById('cfgApiKey').value   = CONFIG.apiKey   || '';
+  document.getElementById('cfgFolderId').value = CONFIG.folderId || '';
+  const el = document.getElementById('cfgTestResult');
+  el.textContent = ''; el.className = 'cfg-test';
+  document.getElementById('configModal').style.display = 'flex';
+}
+
+function closeConfigModal() {
+  document.getElementById('configModal').style.display = 'none';
+}
+
+async function testConnection() {
+  const apiKey   = document.getElementById('cfgApiKey').value.trim();
+  const folderId = document.getElementById('cfgFolderId').value.trim();
+  const el = document.getElementById('cfgTestResult');
+  if (!apiKey || !folderId) { el.textContent = 'Completá ambos campos primero'; el.className = 'cfg-test error'; return; }
+  const prev = { apiKey: CONFIG.apiKey, folderId: CONFIG.folderId };
+  CONFIG.apiKey = apiKey; CONFIG.folderId = folderId;
+  try {
+    const files  = await listFolderFiles();
+    const picked = pickExcelFiles(files);
+    el.textContent = 'OK — ' + files.length + ' archivo(s) en la carpeta, ' + picked.length + ' Excel(s) con mes+año detectado';
+    el.className = 'cfg-test ok';
+  } catch(err) {
+    el.textContent = err.message; el.className = 'cfg-test error';
+    CONFIG.apiKey = prev.apiKey; CONFIG.folderId = prev.folderId;
+  }
+}
+
+async function saveAndConnect() {
+  const apiKey   = document.getElementById('cfgApiKey').value.trim();
+  const folderId = document.getElementById('cfgFolderId').value.trim();
+  const el = document.getElementById('cfgTestResult');
+  if (!apiKey || !folderId) { el.textContent = 'Completá API Key y Folder ID'; el.className = 'cfg-test error'; return; }
+  saveConfig({ apiKey, folderId });
+  closeConfigModal();
+  try {
+    const files  = await listFolderFiles();
+    const picked = pickExcelFiles(files);
+    FILE_INDEX = picked;
+    populateMonthSelect(picked);
+    if (picked.length) await downloadAndParseExcel(picked[0].id, picked[0].mes + ' ' + picked[0].año);
+  } catch(err) { showStatus('Error: ' + err.message, 'error'); }
+}
+
+function wireEvents() {
+  document.getElementById('monthSelect').addEventListener('change', async function() {
+    const opt    = this.options[this.selectedIndex];
+    const newVal = this.value;
+    try {
+      await downloadAndParseExcel(newVal, opt.dataset.mes);
+    } catch(err) {
+      showStatus('Error al cargar ' + opt.dataset.mes + ': ' + err.message, 'error');
+      if (loadedFileId) this.value = loadedFileId;
+    }
+  });
+
+  document.getElementById('btnReload').addEventListener('click', async function() {
+    try {
+      YTD_CACHE = {}; // refrescar para evitar datos viejos
+      const files  = await listFolderFiles();
+      const picked = pickExcelFiles(files);
+      const prev   = document.getElementById('monthSelect').value;
+      FILE_INDEX = picked;
+      populateMonthSelect(picked);
+      const found  = picked.find(f => f.id === prev);
+      const target = found || picked[0];
+      if (target) {
+        document.getElementById('monthSelect').value = target.id;
+        await downloadAndParseExcel(target.id, target.mes + ' ' + target.año);
+      }
+    } catch(err) { showStatus('Error: ' + err.message, 'error'); }
+  });
+
+  document.getElementById('btnConfig').addEventListener('click', openConfigModal);
+  document.getElementById('btnCfgClose').addEventListener('click', closeConfigModal);
+  document.getElementById('btnCfgCancel').addEventListener('click', closeConfigModal);
+  document.getElementById('btnCfgTest').addEventListener('click', testConnection);
+  document.getElementById('btnCfgSave').addEventListener('click', saveAndConnect);
+  document.getElementById('configModal').addEventListener('click', function(e) {
+    if (e.target === this) closeConfigModal();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.getElementById('configModal').style.display !== 'none') closeConfigModal();
+  });
+}
+
+async function bootstrap() {
+  wireEvents();
+  loadConfig();
+  if (!CONFIG.apiKey || !CONFIG.folderId) {
+    showStatus('Configurá Google Drive para empezar', 'info');
+    openConfigModal();
+    return;
+  }
+  try {
+    const files  = await listFolderFiles();
+    const picked = pickExcelFiles(files);
+    FILE_INDEX = picked;
+    populateMonthSelect(picked);
+    if (picked.length) await downloadAndParseExcel(picked[0].id, picked[0].mes + ' ' + picked[0].año);
+  } catch(err) { showStatus('Error: ' + err.message, 'error'); }
+}
+bootstrap();
+</script>
+</body>
+</html>

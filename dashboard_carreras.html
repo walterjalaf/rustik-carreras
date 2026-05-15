@@ -350,19 +350,19 @@ body.pdf-export-mode .container {
 /* Mobile: <700px */
 @media (max-width: 699px) {
   .navbar {
-    padding: 12px 16px;
-    height: auto;
-    flex-wrap: wrap;
-    gap: 10px;
+    padding: 0 14px;
+    height: 52px;
+    flex-wrap: nowrap;
+    gap: 12px;
+    align-items: center;
   }
-  .nav-left { flex: 1 1 100%; }
-  .nav-center { flex: 1 1 100%; padding: 0; }
-  .month-select { max-width: none; flex: 1; }
-  .nav-right { flex: 1 1 100%; justify-content: space-between; }
-  .nav-total-value { font-size: 1.2rem; }
-  .nav-title { font-size: 0.85rem; }
-  .nav-sub { font-size: 0.65rem; }
+  .nav-left { flex: 0 0 auto; gap: 10px; }
+  .nav-title, .nav-sub { display: none; }
   .nav-logo { height: 34px; }
+  .nav-center { flex: 1; padding: 0; }
+  .month-select { max-width: none; width: 100%; }
+  #btnReload { display: none; }
+  .nav-right { display: none !important; }
 
   .container { padding: 16px 12px; }
   .print-controls { padding: 8px 12px; gap: 8px; }
@@ -841,9 +841,9 @@ body.pdf-export-mode .container {
   </div>
 
   <div id="block-acum">
-    <div class="block-label">Progresión Diaria Acumulada</div>
+    <div class="block-label">Progresión Semanal Acumulada</div>
     <div class="chart-card full" style="margin-bottom:24px;">
-      <div class="chart-title">Acumulado de Ingresos por Carrera — Progresión Diaria</div>
+      <div class="chart-title">Acumulado de Ingresos por Carrera — Progresión Semanal</div>
       <div style="height:280px;position:relative;"><canvas id="chartAcum"></canvas></div>
     </div>
   </div>
@@ -1036,9 +1036,21 @@ function initCharts(dias,data,races,totales){
   chartMpEf=new Chart(document.getElementById('chartMpEf'),{type:'bar',
     data:{labels:races.map(k=>rc(k).short),datasets:[{label:'Mercado Pago',data:races.map(k=>totales[k].mp),backgroundColor:'rgba(34,211,238,0.75)',borderColor:'#22D3EE',borderWidth:1,borderRadius:5},{label:'Efectivo',data:races.map(k=>totales[k].ef),backgroundColor:'rgba(129,140,248,0.65)',borderColor:'#818CF8',borderWidth:1,borderRadius:5}]},
     options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:22}},plugins:{pctOnBars:{},legend:{labels:{color:'#F0F4F8',padding:12,font:{size:11,family:'Inter'}}},tooltip:{callbacks:{label:ctx=>{const i=ctx.dataIndex;const mp=ctx.chart.data.datasets[0].data[i]||0;const ef=ctx.chart.data.datasets[1].data[i]||0;const total=mp+ef;const pct=total>0?((ctx.raw/total)*100).toFixed(1):'0';return ` ${ctx.dataset.label}: $${ctx.raw.toLocaleString('es-AR')} (${pct}%)`;}}}},scales:{x:{ticks:{color:tickColor,font:{family:'Inter'}},grid:{color:gridColor}},y:{ticks:{color:tickColor,callback:v=>fmtK(v),font:{family:'Inter'}},grid:{color:gridColor}}}},plugins:[pctOnBars]});
+  // Agrupar en semanas usando los mismos cortes que la tabla
+  const wkBps=[7,14,21,28];
+  const wkLabels=[],wkIdxs=[];
+  let wprev=0;
+  for(const bp of [...wkBps,dias.length]){
+    const end=Math.min(bp,dias.length);
+    if(wprev>=dias.length)break;
+    const ei=end-1;
+    if(ei>=0&&ei<dias.length){wkLabels.push('Sem '+(wkLabels.length+1)+'\n'+dias[ei]);wkIdxs.push(ei);}
+    wprev=bp;
+    if(end>=dias.length)break;
+  }
   chartAcum=new Chart(document.getElementById('chartAcum'),{type:'line',
-    data:{labels:dias,datasets:races.map(k=>{const r=rc(k);const daily=dias.map((_,i)=>(data[k]?.mp[i]||0)+(data[k]?.ef[i]||0));return{label:r.short,data:acum(daily),borderColor:r.color,backgroundColor:r.bg,borderWidth:2,pointRadius:2,fill:true,tension:0.3};})},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#F0F4F8',padding:12,font:{size:11,family:'Inter'},boxWidth:12}},tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>` ${ctx.dataset.label}: $${ctx.raw.toLocaleString('es-AR')}`}}},scales:{x:{ticks:{color:tickColor,font:{size:10,family:'Inter'},maxRotation:45},grid:{color:gridColor}},y:{ticks:{color:tickColor,callback:v=>fmtK(v),font:{family:'Inter'}},grid:{color:gridColor}}}}});
+    data:{labels:wkLabels,datasets:races.map(k=>{const r=rc(k);const daily=dias.map((_,i)=>(data[k]?.mp[i]||0)+(data[k]?.ef[i]||0));const cd=acum(daily);return{label:r.short,data:wkIdxs.map(i=>cd[i]),borderColor:r.color,backgroundColor:r.bg,borderWidth:2,pointRadius:5,pointHoverRadius:7,fill:true,tension:0.3};})},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#F0F4F8',padding:12,font:{size:11,family:'Inter'},boxWidth:12}},tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>` ${ctx.dataset.label}: $${ctx.raw.toLocaleString('es-AR')}`}}},scales:{x:{ticks:{color:tickColor,font:{size:11,family:'Inter'},maxRotation:0},grid:{color:gridColor}},y:{ticks:{color:tickColor,callback:v=>fmtK(v),font:{family:'Inter'}},grid:{color:gridColor}}}}});
 }
 
 function updateHeader(races,totales,mes){
